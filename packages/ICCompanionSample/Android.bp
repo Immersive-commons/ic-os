@@ -1,0 +1,10 @@
+// Sample companion: an ordinary app (not platform-signed, not privileged) that gets
+// sensor streams from the IC sensor bus. Not in PRODUCT_PACKAGES; build it on demand
+// (`m ICCompanionSample`) or standalone with tools/build-app.sh.
+android_app {
+    name: "ICCompanionSample",
+    srcs: ["src/**/*.java"],
+    static_libs: ["ic-sensorbus-aidl"],
+    manifest: "AndroidManifest.xml",
+    sdk_version: "current",
+}

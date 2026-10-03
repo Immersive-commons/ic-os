@@ -1,0 +1,27 @@
+// IC Sensor Bus: the one system app that holds raw sensors in the background.
+// Companions never open sensors directly; they get consent-gated streams from here.
+// Must ship as a persistent privileged app: on 2026-10-02 the same APK installed
+// as a data app received 0 background sensor events (SensorService treats a
+// non-active app uid as having no sensor access).
+android_app {
+    name: "ICSensorBus",
+    srcs: ["src/**/*.java"],
+    manifest: "AndroidManifest.xml",
+    certificate: "platform",
+    privileged: true,
+    platform_apis: true,
+    system_ext_specific: true,
+    required: ["privapp-permissions-ic"],
+}
+
+prebuilt_etc {
+    name: "privapp-permissions-ic",
+    src: ":ic-privapp-permissions",
+    sub_dir: "permissions",
+    system_ext_specific: true,
+}
+
+filegroup {
+    name: "ic-privapp-permissions",
+    srcs: ["../../permissions/privapp-permissions-ic.xml"],
+}

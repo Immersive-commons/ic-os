@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- IC sensor bus probe: a headless, platform-signed service that reports which
+     privileged permissions it holds and the sensor event rates it actually gets
+     while it has no visible UI (the "background" case stock apps are denied). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.immersivecommons.sensorbus"
+    android:versionCode="1"
+    android:versionName="0.1">
+
+    <uses-sdk android:minSdkVersion="33" android:targetSdkVersion="36" />
+
+    <!-- normal on stock Android; we want to know it is granted -->
+    <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
+    <!-- signature|privileged: the ones a fork's system service needs -->
+    <uses-permission android:name="android.permission.ACCESS_CONTEXT_HUB" />
+    <uses-permission android:name="android.permission.CAPTURE_AUDIO_HOTWORD" />
+    <uses-permission android:name="android.permission.MANAGE_SENSOR_PRIVACY" />
+    <uses-permission android:name="android.permission.POWER_SAVER" />
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
+
+    <application android:label="IC Sensor Bus Probe" android:persistent="true">
+        <service
+            android:name=".ProbeService"
+            android:exported="true" />
+    </application>
+</manifest>

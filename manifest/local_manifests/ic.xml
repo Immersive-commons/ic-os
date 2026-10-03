@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Drop into .repo/local_manifests/ on a LineageOS lineage-23.2 checkout.
+     Adds the IC vendor layer and swaps in IC's forks of the framework repos. -->
+<manifest>
+  <remote name="ic" fetch="https://github.com/immersive-commons/" revision="ic-23.2" />
+
+  <project path="vendor/ic" name="ic-os" remote="ic" revision="main" />
+
+  <remove-project name="LineageOS/android_frameworks_base" />
+  <project path="frameworks/base" name="android_frameworks_base" remote="ic" />
+
+  <remove-project name="LineageOS/android_frameworks_native" />
+  <project path="frameworks/native" name="android_frameworks_native" remote="ic" />
+</manifest>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Allowlist for the IC sensor bus as a /system/priv-app. Without it a
+     userdebug build with enforced privapp permissions refuses to boot. -->
+<permissions>
+    <privapp-permissions package="org.immersivecommons.sensorbus">
+        <permission name="android.permission.ACCESS_CONTEXT_HUB"/>
+        <permission name="android.permission.CAPTURE_AUDIO_HOTWORD"/>
+        <permission name="android.permission.MANAGE_SENSOR_PRIVACY"/>
+        <permission name="android.permission.POWER_SAVER"/>
+        <permission name="android.permission.INTERACT_ACROSS_USERS"/>
+    </privapp-permissions>
+</permissions>

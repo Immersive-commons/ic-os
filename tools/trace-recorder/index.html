@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>IC Trace Recorder</title>
+<!-- Records motion + location from a member's current phone (iPhone or Android,
+     no app) into a JSONL trace that the IC OS sensor bus replays on the virtual
+     phone. Format: docs/TRACE_FORMAT.md. Nothing leaves the phone: the trace is
+     a file download the member chooses to share. -->
+<style>
+  :root { --bg:#fbfaf7; --ink:#1b1a17; --quiet:#6b6860; --line:#dedad1; --accent:#2457d6; --stop:#c2410c; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#141413; --ink:#ecebe6; --quiet:#a19e95; --line:#34332f; --accent:#7aa2ff; --stop:#fb923c; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.45 system-ui, -apple-system, sans-serif;
+         padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); }
+  main { max-width: 480px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 8px 0 4px; }
+  p { color: var(--quiet); margin: 0 0 16px; }
+  fieldset { border:1px solid var(--line); border-radius:12px; padding:8px 12px; margin:0 0 16px; }
+  label { display:flex; align-items:center; gap:12px; min-height:44px; }
+  input[type=checkbox] { width:22px; height:22px; }
+  input[type=text] { width:100%; min-height:44px; font-size:16px; padding:8px 12px; border:1px solid var(--line);
+                     border-radius:10px; background:transparent; color:var(--ink); }
+  button { width:100%; min-height:52px; font-size:17px; font-weight:600; border:0; border-radius:12px;
+           color:#fff; background:var(--accent); margin-bottom:12px; }
+  button.stop { background:var(--stop); }
+  button.ghost { background:transparent; color:var(--accent); border:1px solid var(--line); }
+  button:disabled { opacity:.45; }
+  dl { display:grid; grid-template-columns: 1fr auto; gap:6px 12px; margin:0 0 16px; font-variant-numeric: tabular-nums; }
+  dt { color: var(--quiet); } dd { margin:0; text-align:right; }
+  #err { color: var(--stop); min-height: 1.4em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>IC Trace Recorder</h1>
+  <p>Records how your phone moves (and, if you allow it, where it goes) so IC OS can be tested on real-life data. The file stays on your phone until you choose to share it.</p>
+
+  <fieldset>
+    <label><input type="checkbox" id="optMotion" checked> Motion (accelerometer, gyroscope)</label>
+    <label><input type="checkbox" id="optOrient" checked> Orientation</label>
+    <label><input type="checkbox" id="optGeo"> Location</label>
+  </fieldset>
+  <label for="note" style="min-height:auto;margin-bottom:6px;color:var(--quiet)">What are you doing? (walking, cycling, desk...)</label>
+  <input type="text" id="note" placeholder="walking to the tower" autocomplete="off">
+  <div style="height:16px"></div>
+
+  <button id="start">Start recording</button>
+  <button id="stop" class="stop" disabled>Stop</button>
+  <button id="save" class="ghost" disabled>Save trace file</button>
+
+  <dl>
+    <dt>Duration</dt><dd id="dur">0 s</dd>
+    <dt>Motion samples</dt><dd id="nMotion">0</dd>
+    <dt>Motion rate</dt><dd id="rate">–</dd>
+    <dt>Location fixes</dt><dd id="nGeo">0</dd>
+  </dl>
+  <div id="err" role="status"></div>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const DEG2RAD = Math.PI / 180;
+let lines = [], t0 = 0, wall0 = 0, nMotion = 0, nGeo = 0, geoWatch = null, timer = null, wakeLock = null;
+
+// t_ns is relative to the start of the recording; the bus replays on its own clock.
+const tns = (perfMs) => Math.round((perfMs - t0) * 1e6);
+const push = (obj) => lines.push(JSON.stringify(obj));
+
+function onMotion(e) {
+  const t = tns(performance.now());
+  const g = e.accelerationIncludingGravity, r = e.rotationRate;
+  const hasAccel = g && g.x != null, hasGyro = r && r.alpha != null;
+  if (hasAccel) push({ t_ns: t, stream: "motion.accel", v: [g.x, g.y, g.z] });
+  // W3C rotationRate is deg/s; Android sensors (and the bus) use rad/s
+  if (hasGyro) push({ t_ns: t, stream: "motion.gyro", v: [r.alpha * DEG2RAD, r.beta * DEG2RAD, r.gamma * DEG2RAD] });
+  // browsers fire empty events on devices without sensors; count only real samples
+  if (hasAccel || hasGyro) nMotion++;
+}
+function onOrient(e) {
+  if (e.alpha == null) return;
+  push({ t_ns: tns(performance.now()), stream: "motion.orientation_deg", v: [e.alpha, e.beta, e.gamma] });
+}
+function onGeo(p) {
+  const c = p.coords;
+  push({ t_ns: tns(performance.now()), stream: "location.fix",
+         v: [c.latitude, c.longitude, c.altitude ?? null], accuracy_m: c.accuracy, speed_mps: c.speed ?? null });
+  nGeo++;
+}
+
+async function askMotionPermission() {
+  // iOS 13+ gates motion behind a prompt that must come from a tap
+  for (const Ev of [window.DeviceMotionEvent, window.DeviceOrientationEvent]) {
+    if (Ev && typeof Ev.requestPermission === "function") {
+      const res = await Ev.requestPermission();
+      if (res !== "granted") throw new Error("Motion access was declined. Allow it in Safari settings and reload.");
+    }
+  }
+}
+
+$("start").onclick = async () => {
+  $("err").textContent = "";
+  try {
+    if ($("optMotion").checked || $("optOrient").checked) await askMotionPermission();
+  } catch (e) { $("err").textContent = e.message; return; }
+  lines = []; nMotion = 0; nGeo = 0; t0 = performance.now(); wall0 = Date.now();
+  push({ header: true, format: "ic-trace/1", started_at: new Date(wall0).toISOString(),
+         note: $("note").value.trim(), user_agent: navigator.userAgent,
+         platform_hint: /iPhone|iPad/.test(navigator.userAgent) ? "ios" : /Android/.test(navigator.userAgent) ? "android" : "other",
+         units: { "motion.accel": "m/s^2 incl. gravity, W3C device frame", "motion.gyro": "rad/s",
+                  "motion.orientation_deg": "deg alpha,beta,gamma", "location.fix": "deg,deg,m" } });
+  if ($("optMotion").checked) addEventListener("devicemotion", onMotion);
+  if ($("optOrient").checked) addEventListener("deviceorientation", onOrient);
+  if ($("optGeo").checked && navigator.geolocation)
+    geoWatch = navigator.geolocation.watchPosition(onGeo, (e) => { $("err").textContent = "Location: " + e.message; },
+                                                   { enableHighAccuracy: true, maximumAge: 0 });
+  try { wakeLock = await navigator.wakeLock?.request("screen"); } catch (_) { /* optional */ }
+  timer = setInterval(() => {
+    const s = (performance.now() - t0) / 1000;
+    $("dur").textContent = s.toFixed(0) + " s";
+    $("nMotion").textContent = nMotion;
+    $("rate").textContent = s > 1 ? (nMotion / s).toFixed(0) + " Hz" : "–";
+    $("nGeo").textContent = nGeo;
+  }, 500);
+  $("start").disabled = true; $("stop").disabled = false; $("save").disabled = true;
+};
+
+$("stop").onclick = () => {
+  removeEventListener("devicemotion", onMotion);
+  removeEventListener("deviceorientation", onOrient);
+  if (geoWatch != null) navigator.geolocation.clearWatch(geoWatch);
+  clearInterval(timer); wakeLock?.release?.(); wakeLock = null;
+  push({ footer: true, duration_s: (performance.now() - t0) / 1000, motion_events: nMotion, location_fixes: nGeo });
+  $("start").disabled = false; $("stop").disabled = true; $("save").disabled = nMotion + nGeo === 0;
+  if (nMotion + nGeo === 0) $("err").textContent = "No data arrived. On a laptop this is expected: open the page on a phone.";
+};
+
+$("save").onclick = async () => {
+  const name = "ic-trace-" + new Date(wall0).toISOString().replace(/[:.]/g, "-") + ".jsonl";
+  const file = new File([lines.join("\n") + "\n"], name, { type: "application/x-ndjson" });
+  // Share sheet on phones (AirDrop, Messages, Files); plain download elsewhere
+  if (navigator.canShare?.({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: name }); return; } catch (_) { /* fall through */ }
+  }
+  const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(file), download: name });
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+};
+</script>
+</body>
+</html>

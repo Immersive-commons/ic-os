@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A NORMAL third-party app (debug-signed, no platform permissions) that gets sensor
+     streams from the IC sensor bus instead of SensorManager. See docs/SENSOR_BUS.md. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.immersivecommons.companion.sample"
+    android:versionCode="1"
+    android:versionName="0.1">
+
+    <uses-sdk android:minSdkVersion="33" android:targetSdkVersion="36" />
+
+    <!-- package visibility: without this, bindService to the bus finds nothing -->
+    <queries>
+        <package android:name="org.immersivecommons.sensorbus" />
+    </queries>
+
+    <application android:label="IC Companion Sample">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <!-- The bus binds this while we hold a stream, so the cached-app freezer does not
+             park us in the background. Only a BIND_COMPANION holder (the bus) can bind. -->
+        <service
+            android:name=".CompanionHostService"
+            android:exported="true"
+            android:permission="org.immersivecommons.permission.BIND_COMPANION">
+            <intent-filter>
+                <action android:name="org.immersivecommons.sensorbus.COMPANION_HOST" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>

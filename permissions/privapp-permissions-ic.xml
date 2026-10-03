@@ -1,12 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Allowlist for the IC sensor bus as a /system/priv-app. Without it a
-     userdebug build with enforced privapp permissions refuses to boot. -->
+<!-- Allowlist for the IC sensor bus as a /system_ext/priv-app. A userdebug build with
+     enforced privapp permissions refuses to boot if a priv-app requests a privileged
+     permission missing from here. The v0 bus requests none (the probe's ones are gone),
+     but the file stays so the next privileged permission has an obvious home. -->
 <permissions>
     <privapp-permissions package="org.immersivecommons.sensorbus">
-        <permission name="android.permission.ACCESS_CONTEXT_HUB"/>
-        <permission name="android.permission.CAPTURE_AUDIO_HOTWORD"/>
-        <permission name="android.permission.MANAGE_SENSOR_PRIVACY"/>
-        <permission name="android.permission.POWER_SAVER"/>
-        <permission name="android.permission.INTERACT_ACROSS_USERS"/>
     </privapp-permissions>
 </permissions>

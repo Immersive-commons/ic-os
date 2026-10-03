@@ -3,9 +3,22 @@
 // Must ship as a persistent privileged app: on 2026-10-02 the same APK installed
 // as a data app received 0 background sensor events (SensorService treats a
 // non-active app uid as having no sensor access).
+
+// The companion API (ISensorBus, IStreamCallback, StreamInfo). Companions built in-tree
+// link this statically; out-of-tree ones copy the aidl/ directory (see docs/SENSOR_BUS.md).
+java_library {
+    name: "ic-sensorbus-aidl",
+    srcs: ["aidl/**/*.aidl"],
+    aidl: {
+        local_include_dirs: ["aidl"],
+    },
+    sdk_version: "current",
+}
+
 android_app {
     name: "ICSensorBus",
     srcs: ["src/**/*.java"],
+    static_libs: ["ic-sensorbus-aidl"],
     manifest: "AndroidManifest.xml",
     certificate: "platform",
     privileged: true,

@@ -12,10 +12,14 @@ LineageOS (builder track, Snapdragon phones with an open NPU) and later Graphene
 ```
 config/common.mk               products inherit this
 manifest/local_manifests/ic.xml  adds vendor/ic + our framework forks to a LineageOS checkout
-packages/ICSensorBus/           the only app that holds raw sensors in the background
+packages/ICSensorBus/           the only app that holds raw sensors; serves consent-gated streams
+packages/ICCompanionSample/     an ordinary app that gets streams from the bus
 permissions/                    privileged-permission allowlists
 tools/build-app.sh              build + sign one package without the Android build system
 tools/cf-deploy.sh              install it into a Cuttlefish virtual phone as a priv-app
+tools/cf-install.sh             install it as an ordinary app (adb install)
+tools/busctl.sh                 grant / revoke / pause / resume / dump the bus on the phone
+docs/SENSOR_BUS.md              sensor bus API, grants, ledger, shell commands, measurements
 docs/PATCHES.md                 every upstream change, why, and its status
 ```
 
@@ -27,8 +31,10 @@ with AOSP's public test platform key, so an app signed with it gets platform
 permissions there.
 
 ```bash
-tools/build-app.sh ICSensorBus       # needs JDK 17+ and the Android SDK build-tools
-tools/cf-deploy.sh ICSensorBus ic13  # ssh host running the Cuttlefish phone
+tools/build-app.sh ICSensorBus             # needs JDK 17+ and the Android SDK build-tools
+tools/cf-deploy.sh ICSensorBus ic13        # ssh host running the Cuttlefish phone
+tools/build-app.sh ICCompanionSample       # debug-signed: an ordinary third-party app
+tools/cf-install.sh ICCompanionSample ic13
 ```
 
 Virtual phone runbook and measured results: `life/projects/ic-os/README.md` (IC fleet).
